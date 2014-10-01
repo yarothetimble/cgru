@@ -6,9 +6,7 @@ re_frame = re.compile(
 	r'SCEN.*(progr: begin scene preprocessing for frame )([0-9]+)'
 )
 re_number = re.compile(r'[0-9]+')
-re_percent = re.compile(
-	r'Rendering image...:([ ]{,})([0-9]{1,2}.*)(%[ ]{,}).*'
-)
+re_percent = re.compile( r'([0-9]{1,2}.*)(%[ ]{,}).*' )
 
 
 class vray(parser.parser):
@@ -33,8 +31,14 @@ class vray(parser.parser):
 
 		if len(data) < 1:
 			return
+			
+		match = []
+			
+		if data.find( "Rendering image...: done" ) == -1:
+			dataParsed = data.split( "Rendering image...: " )[-1]
+			match = re_percent.findall(dataParsed)
 
-		match = re_percent.findall(data)
 		if len(match):
-			percentframe = float(match[-1][1])
-			self.percent = int(percentframe)
+			if len( match[0][0] ) < 7:
+				percentframe = float(match[0][0])
+				self.percent = int(percentframe)
