@@ -15,9 +15,9 @@ Host::Host():
 	m_os(""),
 	m_properties(""),
 	m_services_num(0),
-	m_wol_idlesleep_time(0),
-	m_nimby_idlefree_time(0),
-	m_nimby_busyfree_time(0),
+	m_wol_idlesleep_time(-1),
+	m_nimby_idlefree_time(-1),
+	m_nimby_busyfree_time(-1),
 	m_idle_cpu(0),
 	m_busy_cpu(0)
 {
@@ -94,9 +94,9 @@ void Host::mergeParameters( const Host & other)
 	if( other.m_resources.size() ) m_resources    = other.m_resources;
 	if( other.m_data.size()      ) m_data         = other.m_data;
 
-	if( other.m_wol_idlesleep_time  ) m_wol_idlesleep_time  = other.m_wol_idlesleep_time;
-	if( other.m_nimby_idlefree_time ) m_nimby_idlefree_time = other.m_nimby_idlefree_time;
-	if( other.m_nimby_busyfree_time ) m_nimby_busyfree_time = other.m_nimby_busyfree_time;
+	if( other.m_wol_idlesleep_time  != -1 ) m_wol_idlesleep_time  = other.m_wol_idlesleep_time;
+	if( other.m_nimby_idlefree_time != -1 ) m_nimby_idlefree_time = other.m_nimby_idlefree_time;
+	if( other.m_nimby_busyfree_time != -1 ) m_nimby_busyfree_time = other.m_nimby_busyfree_time;
 	if( other.m_idle_cpu ) m_idle_cpu = other.m_idle_cpu;
 	if( other.m_busy_cpu ) m_busy_cpu = other.m_busy_cpu;
 }
@@ -156,11 +156,11 @@ void Host::v_generateInfoStream( std::ostringstream & stream, bool full) const
       stream << std::endl;
 	  stream << "   Capacity = " << m_capacity << ", Max Tasks = " << m_max_tasks << ", Power = " << m_power;
 
-		if( m_wol_idlesleep_time )
+		if( m_wol_idlesleep_time  != -1 )
 			stream << "\n   WOL Sleep Idle Time = " << time2strHMS( m_wol_idlesleep_time, true );
-		if( m_nimby_idlefree_time )
+		if( m_nimby_idlefree_time != -1 )
 			stream << "\n   Nimby Free Idle Time = " << time2strHMS( m_nimby_idlefree_time, true );
-		if( m_nimby_busyfree_time )
+		if( m_nimby_busyfree_time != -1 )
 			stream << "\n   Free Busy Nimby Time = " << time2strHMS( m_nimby_busyfree_time, true );
 		stream << "\n   Idle CPU = " << m_idle_cpu << "%";
 		stream << "\n   Busy CPU = " << m_busy_cpu << "%";
@@ -216,6 +216,24 @@ void HostResMeter::v_readwrite( Msg * msg)
     rw_uint8_t( bgcolorb,   msg);
     rw_String(  label,      msg);
     rw_String(  tooltip,    msg);
+}
+
+void HostResMeter::jsonWrite( std::ostringstream & o_str) const
+{
+	o_str << "{";
+
+	o_str << "\n\"value\":"       << value;
+	o_str << ",\n\"value_max\":"  << valuemax;
+	o_str << ",\n\"width\":"      << int(width);
+	o_str << ",\n\"height\":"     << int(height);
+	o_str << ",\n\"label_size\":" << int(labelsize);
+	o_str << ",\n\"label\":\""    << af::strEscape(label) << "\"";
+	o_str << ",\n\"tooltip\":\""  << af::strEscape(tooltip) << "\"";
+	o_str << ",\n\"graph_clr\":[" << int(graphr)   << "," << int(graphg)   << "," << int(graphb)   << "]";
+	o_str << ",\n\"label_clr\":[" << int(labelr)   << "," << int(labelg)   << "," << int(labelb)   << "]";
+	o_str << ",\n\"back_clr\":["  << int(bgcolorr) << "," << int(bgcolorb) << "," << int(bgcolorb) << "]";
+
+	o_str << "\n}";
 }
 
 void HostResMeter::v_generateInfoStream( std::ostringstream & stream, bool full) const
@@ -344,6 +362,20 @@ void HostRes::jsonWrite( std::ostringstream & o_str) const
 	o_str << ",\n\"hdd_busy\":"       << int(hdd_busy);
 	o_str << ",\n\"net_recv_kbsec\":" << net_recv_kbsec;
 	o_str << ",\n\"net_send_kbsec\":" << net_send_kbsec;
+
+	if( custom.size())
+	{
+		o_str << ",\n\"custom\":[";
+
+		for( int i = 0; i < custom.size(); i++)
+		{
+			if( i ) o_str << ",";
+			o_str << "\n";
+			custom[i]->jsonWrite( o_str);
+		}
+
+		o_str << "\n]";
+	}
 
 	o_str << "\n}";
 }

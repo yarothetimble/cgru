@@ -35,9 +35,7 @@ private slots:
 	void actMoveTop();
 	void actMoveBottom();
 
-	void actAnnotate();
 	void actSetUser();
-	void actPriority();
 	void actHostsMask();
 	void actHostsMaskExclude();
 	void actMaxRunningTasks();
@@ -51,6 +49,8 @@ private slots:
 	void actLifeTime();
 	void actSetHidden();
 	void actUnsetHidden();
+	void actPreviewApproval();
+	void actNoPreviewApproval();
 
 	void blockAction( int id_block, QString i_action);
 

@@ -9,13 +9,13 @@ import cgruutils
 import cgrupyqt
 from cgrupyqt import QtCore, QtGui
 
-Names = ['Blender', 'Houdini', 'Maya', 'Nuke', 'NukeX']
+Names = ['Blender','Houdini','Maya','Natron','Nuke','NukeX']
 
 if 'windows' in cgruconfig.VARS['platform']:
-	Names.extend(['3DSMax', 'Softimage', 'AfterFX'])
+	Names.extend(['3DSMax', 'Softimage'])
 if 'windows' in cgruconfig.VARS['platform'] \
 	or 'macosx' in cgruconfig.VARS['platform']:
-	Names.extend(['C4D'])
+	Names.extend(['C4D','AfterFX'])
 
 
 def startDetached(command):
@@ -40,6 +40,10 @@ def startHoudini():
 
 def startMaya():
 	startDetached('maya')
+
+
+def startNatron():
+	startDetached('natron')
 
 
 def startNuke():
@@ -97,6 +101,10 @@ def exampleHoudini():
 
 def exampleMaya():
 	exampleSoftware('maya', 'start_maya')
+
+
+def exampleNatron():
+	exampleSoftware('natron', 'start_natron')
 
 
 def exampleNuke():
@@ -179,6 +187,10 @@ def locateHoudini():
 
 def locateMaya():
 	locateSoftware('Maya')
+
+
+def locateNatron():
+	locateSoftware('Natron')
 
 
 def locateNuke():

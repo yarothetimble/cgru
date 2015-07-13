@@ -18,9 +18,10 @@ prj_deploy_shots_params.sources = {};
 prj_deploy_shots_params.references = {};
 prj_deploy_shots_params.template = {};
 prj_deploy_shots_params.destination = {};
-prj_deploy_shots_params.sameshot = {"bool":false,"width":'33%',"tooltip":'Example: "NAME" and "NAME-1" will be one shot.'};
-prj_deploy_shots_params.uppercase = {"bool":true,"width":'33%',"tooltip":'Convert shot names to upper case'};
-prj_deploy_shots_params.padding = {"width":'33%',"tooltip":'Example: "432" - first number will have 4 padding, next 3 and so on.'};
+prj_deploy_shots_params.sameshot  = {"width":'25%','type':"bool",'default':false,"tooltip":'Example: "NAME" and "NAME-1" will be one shot.'};
+prj_deploy_shots_params.extract   = {"width":'25%','type':"bool",'default':false,"tooltip":'Extract sources folder.'};
+prj_deploy_shots_params.uppercase = {"width":'25%','type':"bool",'default':false,"tooltip":'Convert shot names to upper case.'};
+prj_deploy_shots_params.padding   = {"width":'25%',"tooltip":'Example: "432" - first number will have 4 padding, next 3 and so on.'};
 
 function prj_ShotsDeploy()
 {
@@ -29,7 +30,7 @@ function prj_ShotsDeploy()
 
 	var params = {};
 	params.sources = g_CurPath() + '/deploy/src';
-	params.references = g_CurPath() + '/deploy/ref';
+//	params.references = g_CurPath() + '/deploy/ref';
 	params.template = RULES.assets.shot.template;
 
 //console.log( JSON.stringify( g_elCurFolder.m_dir));
@@ -104,6 +105,7 @@ function prj_ShotsDeployDo( i_wnd, i_args)
 	cmd += ' --shot_src "' + RULES.assets.shot.source.path[0] + '"'
 	cmd += ' --shot_ref "' + RULES.assets.shot.references.path[0] + '"'
 	if( params.sameshot ) cmd += ' --sameshot';
+	if( params.extract ) cmd += ' --extract';
 	if( params.uppercase ) cmd += ' -u';
 	if( params.padding.length ) cmd += ' -p ' + params.padding;
 
@@ -139,52 +141,93 @@ function prj_ShotsDeployFinished( i_data, i_args)
 	}
 
 	var deploy = i_data.cmdexec[0].deploy;
-//elResults.textContent = 'd:'+JSON.stringify( deploy);return;
+//console.log(JSON.stringify(deploy));
 
 	var el = document.createElement('div');
 	elResults.appendChild( el);
 	el.textContent = deploy.length + ' shots founded:';
 
+	var elTable = document.createElement('table');
+	elResults.appendChild( elTable);
+
+	var elTr = document.createElement('tr');
+	elTable.appendChild( elTr);
+	var el = document.createElement('th'); elTr.appendChild( el); el.textContent = 'Name';
+	var el = document.createElement('th'); elTr.appendChild( el); el.textContent = 'Sequence';
+	var el = document.createElement('th'); elTr.appendChild( el); el.textContent = 'Additional sources';
+	var el = document.createElement('th'); elTr.appendChild( el); el.textContent = 'Refs';
+	var el = document.createElement('th'); elTr.appendChild( el); el.textContent = 'Comments';
+
 	for( var d = deploy.length - 1; d >= 0; d--)
 	{
-		var el = document.createElement('div');
-		elResults.appendChild( el);
+//console.log(JSON.stringify(deploy[d]));
+		var elTr = document.createElement('tr');
+		elTable.appendChild( elTr);
+
 		for( var key in deploy[d])
 		{
-			el.classList.add( key);
+			elTr.classList.add( key);
+
 			if( key == 'shot' )
 			{
 				var shot = deploy[d][key];
+console.log(JSON.stringify(shot));
 
-				var elName = document.createElement('div');
-				el.appendChild( elName);
-				elName.textContent = shot.name + ': ';
-				elName.classList.add('name');
+				// Shot name:
+				var el = document.createElement('td');
+				elTr.appendChild( el);
+				el.textContent = shot.name;
+				el.classList.add('deploy_name');
 
+				// Main source:
+				var el = document.createElement('td');
+				elTr.appendChild( el);
+				el.textContent = shot.SRC[0];
+				el.classList.add('deploy_src');
+
+				// Same sources:
+				var el = document.createElement('td');
+				elTr.appendChild( el);
+				el.classList.add('deploy_src');
 				var src = '';
-				for( var i = 0; i < shot.src.length; i++)
-					src += ' ' + c_PathBase( shot.src[i]);
-				var elSrc = document.createElement('div');
-				el.appendChild( elSrc);
-				elSrc.textContent = src;
-				elSrc.classList.add('src');
-
-				if( shot.ref && shot.ref.length )
+				if( shot.SRC.length > 1 )
+					for( var i = 1; i < shot.SRC.length; i++)
+						src += ' ' + shot.SRC[i];
+				el.textContent = src;
+				
+				// References:
+				var el = document.createElement('td');
+				elTr.appendChild( el);
+				el.classList.add('deploy_ref');
+				var ref = '';
+				if( shot.REF && shot.REF.length )
 				{
-					var ref = '';
-					for( var i = 0; i < shot.ref.length; i++)
-						ref += ' ' + c_PathBase( shot.ref[i]);
-					var elRef = document.createElement('div');
-					el.appendChild( elRef);
-					elRef.textContent = ref;
-					elRef.classList.add('ref');
+					for( var i = 0; i < shot.REF.length; i++)
+						ref += ' ' + shot.REF[i];
 				}
+				el.textContent = ref;
+
+				// Comments:
+				var el = document.createElement('td');
+				elTr.appendChild( el);
+				el.classList.add('deploy_info');
+				var comm = '';
+				if( shot.exists )
+				{
+					comm = 'EXISTS';
+					elTr.classList.add('deploy_exist');
+				}
+				el.textContent = comm;
 
 //console.log( JSON.stringify( shot));
 				break;
 			}
-
-			el.textContent = key + ': ' + deploy[d][key];
+			else
+			{
+				var el = document.createElement('td');
+				elTr.appendChild( el);
+				el.textContent = key + ': ' + deploy[d][key];
+			}
 		}
 	}
 }

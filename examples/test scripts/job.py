@@ -42,10 +42,13 @@ parser.add_option(      '--mhservice',    dest='mhservice',    type='str',    de
 parser.add_option(      '--cmdpre',       dest='cmdpre',       type='string', default='', help='job pre command')
 parser.add_option(      '--cmdpost',      dest='cmdpost',      type='string', default='', help='job post command')
 parser.add_option(      '--parser',       dest='parser',       type='string', default='', help='parser type, default if not set')
+parser.add_option(      '--folder',       dest='folder',       type='string', default='', help='add a folder')
+parser.add_option(      '--seq',          dest='sequential',   type='int',    default=None,help='Sequential running')
+parser.add_option(      '--ppa',          dest='ppapproval',   action='store_true', default=False, help='Preview pending approval')
+parser.add_option('-e', '--exitstatus',   dest='exitstatus',   type='int',    default=0,  help='good exit status')
 parser.add_option('-v', '--verbose',      dest='verbose',      type='int',    default=0,  help='tasks verbose level')
 parser.add_option('-x', '--xcopy',        dest='xcopy',        type='int',    default=1,  help='number of copies to send')
 parser.add_option(      '--sub',          dest='subdep',       action='store_true', default=False, help='sub task dependence')
-parser.add_option(      '--nonseq',       dest='nonseq',       action='store_true', default=False, help='task non-sequential running')
 parser.add_option('-s', '--stringtype',   dest='stringtype',   action='store_true', default=False, help='generate not numeric blocks')
 parser.add_option('-o', '--output',       dest='output',       action='store_true', default=False, help='output job information')
 parser.add_option(      '--pause',        dest='pause',        action='store_true', default=False, help='start job paused')
@@ -73,6 +76,10 @@ if jobname == '':
 
 job = af.Job(jobname)
 job.setDescription('afanasy test - empty tasks')
+job.setFolder('pwd', os.getcwd())
+job.setFolder('test', '/this/is/a/test')
+if options.folder and len(options.folder):
+	job.setFolder('folder', options.folder)
 
 blocknames = []
 if options.labels != '':
@@ -123,8 +130,11 @@ for b in range(numblocks):
 	if options.capacity != 0:
 		block.setCapacity(options.capacity)
 
-	if options.nonseq:
-		block.setNonSequential()
+	if options.sequential != None:
+		block.setSequential( options.sequential)
+
+	if options.ppapproval:
+		job.setPPApproval()
 
 	str_capacity = ''
 	if options.capmin != -1 or options.capmax != -1:
@@ -152,6 +162,7 @@ for b in range(numblocks):
 		cmd = 'task.py'
 		cmd = os.path.join(os.getcwd(), cmd)
 		cmd = 'python "%s"' % cmd
+		cmd += ' --exitstatus %d ' % options.exitstatus
 		cmd += '%(str_capacity)s%(str_hosts)s -s @#@ -e @#@ ' \
 			   '-i %(increment)d -t %(timesec)g -r %(randtime)g ' \
 			   '-v %(verbose)d @####@ @#####@ @#####@ @#####@' % vars()

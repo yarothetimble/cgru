@@ -39,10 +39,19 @@ UserAf::UserAf( const std::string & i_store_dir):
 	int size;
 	char * data = af::fileRead( getStoreFile(), &size);
 	if( data == NULL ) return;
+
 	rapidjson::Document document;
 	char * res = af::jsonParseData( document, data, size);
-	if( res == NULL ) return;
-	jsonRead( document);
+	if( res == NULL )
+	{
+		delete [] data;
+		return;
+	}
+
+	if( jsonRead( document))
+		setStoredOk();
+
+	delete [] res;
 	delete [] data;
 }
 

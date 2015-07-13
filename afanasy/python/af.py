@@ -97,16 +97,18 @@ class Block:
 	def __init__(self, blockname='block', service='generic'):
 		self.data = dict()
 		self.data["name"] = blockname
+		self.data["service"] = cgruconfig.VARS['af_task_default_service']
 		self.data["capacity"] = int(
 			cgruconfig.VARS['af_task_default_capacity'])
 		self.data["working_directory"] = Pathmap.toServer(
 			os.getenv('PWD', os.getcwd()))
 		self.data["numeric"] = False
 		self.tasks = []
-		if self.setService(service):
-			__import__("services", globals(), locals(), [self.data["service"]])
-			parser = eval(('services.%s.parser') % self.data["service"])
-			self.setParser(parser)
+		if service is not None and len(service):
+			if self.setService(service):
+				__import__("services", globals(), locals(), [self.data["service"]])
+				parser = eval(('services.%s.parser') % self.data["service"])
+				self.setParser(parser)
 
 	def setService(self, service, nocheck=False):
 		"""Missing DocString
@@ -115,7 +117,7 @@ class Block:
 		:param nocheck:
 		:return:
 		"""
-		if service != '':
+		if service is not None and len(service):
 			result = True
 			if not nocheck:
 				if not checkClass(service, 'services'):
@@ -134,16 +136,16 @@ class Block:
 		:param nocheck:
 		:return:
 		"""
-		if parser != '':
+		if parser is not None and len(parser):
 			if not nocheck:
 				if not checkClass(parser, 'parsers'):
 					if parser != 'none':
 						print('Error: Unknown parser "%s", setting to "none"' %
 							  parser)
 						parser = 'none'
-		self.data["parser"] = parser
+			self.data["parser"] = parser
 
-	def setNumeric(self, start=1, end=10, pertask=1, increment=1):
+	def setNumeric(self, start=1, end=1, pertask=1, increment=1):
 		"""Missing DocString
 
 		:param int start:
@@ -169,9 +171,24 @@ class Block:
 		self.data["frames_per_task"] = pertask
 		self.data["frames_inc"] = increment
 
-	# def setFlags(self, flags):
 
-	# self.data['flags'] = flags
+	def setFramesPerTask(self, value):
+		"""Missing DocString
+
+		:param value:
+		:return:
+		"""
+		self.data["frames_per_task"] = value
+
+
+	def setSequential(self, value):
+		"""Missing DocString
+
+		:param value:
+		:return:
+		"""
+		self.data["sequential"] = value
+
 
 	def setCapacity(self, capacity):
 		"""Missing DocString
@@ -273,14 +290,6 @@ class Block:
 		"""
 		self.data["tasks_name"] = value
 
-	def setFramesPerTask(self, value):
-		"""Missing DocString
-
-		:param value:
-		:return:
-		"""
-		self.data["frames_per_task"] = value
-
 	def setParserCoeff(self, value):
 		"""Missing DocString
 
@@ -344,14 +353,6 @@ class Block:
 		:return:
 		"""
 		self.data["need_power"] = value
-
-	def setNonSequential(self, value=True):
-		"""Missing DocString
-
-		:param value:
-		:return:
-		"""
-		self.data["non_sequential"] = value
 
 	def setDependSubTask(self, value=True):
 		"""Missing DocString
@@ -565,6 +566,22 @@ class Job:
 			command = Pathmap.toServer(command)
 		self.data["command_post"] = command
 
+	def setFolder(self, i_name, i_folder, i_transferToServer=True):
+		"""Missing DocString
+
+		:param i_name:
+		:param i_folder:
+		:param i_transferToServer:
+		:return:
+		"""
+		if i_transferToServer:
+			i_folder = Pathmap.toServer(i_folder)
+
+		if not "folders" in self.data:
+			self.data["folders"] = dict()
+
+		self.data["folders"][i_name] = i_folder
+
 	def fillBlocks(self):
 		"""Missing DocString
 
@@ -706,6 +723,9 @@ class Job:
 		"""Missing DocString
 		"""
 		self.data["need_os"] = ''
+
+	def setPPApproval(self):
+		self.data["ppa"] = True
 
 	def pause(self):
 		"""Missing DocString

@@ -22,8 +22,9 @@ class service(object):  # TODO: Class names should follow CamelCase naming conve
 	:param taskInfo:
 	"""
 
-	def __init__(self, taskInfo):
+	def __init__(self, taskInfo, i_verbose):
 		self.taskInfo = taskInfo
+		self.verbose = i_verbose
 
 		self.pm = cgrupathmap.PathMap()
 
@@ -69,6 +70,10 @@ class service(object):  # TODO: Class names should follow CamelCase naming conve
 				self.parser = None
 				print('ERROR: Failed to import parser "%s"' % parser)
 				traceback.print_exc(file=sys.stdout)
+
+		if self.verbose:
+			print(taskInfo)
+
 
 	def getWDir(self):
 		"""Missing DocString
@@ -150,7 +155,30 @@ class service(object):  # TODO: Class names should follow CamelCase naming conve
 		"""
 		if self.parser is None:
 			return None
+
+		thumb_cmds = self.generateThumbnail( True)
+		for cmd in thumb_cmds:
+			print( cmd)
+			os.system(cmd)
+
 		return self.parser.parse(data, mode)
+
+	def checkExitStatus(self, i_status):
+		""" This function needed to check task process exit status.
+			By default zero is success, any other means some error.
+			But some services can have some other good exit status value(s).
+		"""
+		status = False
+		if i_status == 0:
+			status = True
+
+		if self.verbose:
+			msg = 'ERROR'
+			if status:
+				msg = 'SUCCESS'
+			print('service::checkExitStatus: %d %s' % (i_status, msg))
+
+		return status
 
 	def doPost(self):
 		"""Missing DocString
@@ -172,11 +200,11 @@ class service(object):  # TODO: Class names should follow CamelCase naming conve
 		post_cmds = []
 		#print( self.parser.getFiles())
 		# if len( self.taskInfo['files']) and check_flag( self.taskInfo.get('block_flags', 0), 'thumbnails'):
-		post_cmds.extend(self.generateThumbnail())
+		post_cmds.extend(self.generateThumbnail( False))
 		# post_cmds.extend(['ls -la > ' + self.taskInfo['store_dir'] + '/afile'])
 		return post_cmds
 
-	def generateThumbnail(self):
+	def generateThumbnail(self, i_onthefly):
 		"""Missing DocString
 
 		:return:
@@ -188,7 +216,10 @@ class service(object):  # TODO: Class names should follow CamelCase naming conve
 
 		files_list = []
 		if self.parser is not None:
-			files_list = self.parser.getFiles()
+			if i_onthefly:
+				files_list = self.parser.getFilesOnTheFly()
+			else:
+				files_list = self.parser.getFiles()
 
 		if len(files_list):
 			if len(files_list) > 3:

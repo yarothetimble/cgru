@@ -7,8 +7,12 @@ ad_wnd_sort_prop = 'role';
 ad_wnd_sort_dir = 0;
 
 ad_states = {};
-ad_states.notart = {"short":'NA',"label":'NotArt',"tooltip":'Not an artist.'};
-ad_states.passwd = {"short":'PS',"label":'Passwd',"tooltip":'Can change password.'};
+ad_states.notart    = {"short":'NA',"label":'NotArt',"tooltip":'Not an artist.'};
+ad_states.passwd    = {"short":'PS',"label":'Passwd',"tooltip":'Can change password.'};
+ad_states.playlist  = {"short":'PL',"label":'Playlist',"tooltip":'Can edit playlist.'};
+ad_states.assignart = {"short":'AA',"label":'AssignArt',"tooltip":'Can assign artists.'};
+ad_states.edittasks = {"short":'TS',"label":'EditTasks',"tooltip":'Can edit tasks.'};
+ad_states.editbody  = {"short":'BD',"label":'EditBody',"tooltip":'Can edit body.'};
 
 function ad_Init()
 {
@@ -210,25 +214,28 @@ function ad_PermissionsReceived( i_data)
 		var el = document.createElement('div');
 		$('permissions').appendChild( el);
 		el.textContent = 'Groups:';
+		el.classList.add('caption');
 	}
 	for( var i = 0; i < ad_permissions.groups.length; i++)
 	{
 		var group = ad_permissions.groups[i];
 		var el = document.createElement('div');
 		$('permissions').appendChild( el);
+		el.classList.add('item');
 
 		if( group != 'admins' )
 		{
 			var elBtn = document.createElement('div');
 			el.appendChild( elBtn);
 			elBtn.classList.add('button');
-			elBtn.textContent = '-';
+			elBtn.classList.add('delete');
 			elBtn.m_group_id = group;
 			elBtn.ondblclick = function(e){ad_PermissionsRemove('groups', e.currentTarget.m_group_id)};
 		}
 
 		var elName = document.createElement('div');
 		el.appendChild( elName);
+		elName.classList.add('name');
 		elName.textContent = group;
 	}
 
@@ -237,22 +244,25 @@ function ad_PermissionsReceived( i_data)
 		var el = document.createElement('div');
 		$('permissions').appendChild( el);
 		el.textContent = 'Users:';
+		el.classList.add('caption');
 	}
 	for( var i = 0; i < ad_permissions.users.length; i++)
 	{
 		var user = ad_permissions.users[i];
 		var el = document.createElement('div');
 		$('permissions').appendChild( el);
+		el.classList.add('item');
 
 		var elBtn = document.createElement('div');
 		el.appendChild( elBtn);
 		elBtn.classList.add('button');
-		elBtn.textContent = '-';
+		elBtn.classList.add('delete');
 		elBtn.m_user_id = user;
 		elBtn.ondblclick = function(e){ad_PermissionsRemove('users', e.currentTarget.m_user_id)};
 
 		var elName = document.createElement('div');
 		el.appendChild( elName);
+		elName.classList.add('name');
 		elName.textContent = user;
 	}
 }
@@ -311,7 +321,8 @@ function ad_ChangesFinished( i_data, i_args)
 }
 function ad_OpenWindow()
 {
-	ad_wnd = new cgru_Window({"name":'administrate',"title":'Administrate'});
+	u_OpenCloseHeader();
+	ad_wnd = new cgru_Window({"name":'administrate',"title":'Administrate','padding':'3% 1%'});
 	ad_wnd.elContent.classList.add('administrate');
 	ad_wnd.closeOnEsc = false;
 
@@ -323,6 +334,7 @@ function ad_OpenWindow()
 	el.classList.add('button');
 	el.textContent = 'Refresh';
 	el.onclick = ad_WndRefresh;
+	el.style.cssFloat = 'right';
 
 	var el = document.createElement('div');
 	elBtnsDiv.appendChild( el);
@@ -409,6 +421,8 @@ function ad_WndStateSelect( i_el)
 	else
 		ad_wnd_curstate = null;
 
+	ad_wnd_curgroup = null;
+
 	for( var i = 0; i < ad_wnd.elUsrRows.length; i++)
 	{
 		var elU = ad_wnd.elUsrRows[i];
@@ -460,6 +474,12 @@ function ad_WndDrawUsers()
 			if(( val_a > val_b ) == ad_wnd_sort_dir ) return -1;
 			if(( val_a < val_b ) == ad_wnd_sort_dir ) return  1;
 
+			if( ad_wnd_sort_prop != 'role' )
+			{
+				if(( a.role > b.role) == ad_wnd_sort_dir ) return -1;
+				if(( a.role < b.role) == ad_wnd_sort_dir ) return  1;
+			}
+
 			if(( a.disabled && ( ! b.disabled )) == ad_wnd_sort_dir ) return -1;
 			if(( b.disabled && ( ! a.disabled )) == ad_wnd_sort_dir ) return  1;
 
@@ -485,6 +505,12 @@ function ad_WndDrawUsers()
 
 	var el = document.createElement('th');
 	elTr.appendChild( el);
+	el.textContent = 'A';
+	el.title = 'User avatar.\nDouble click to edit.';
+	el.onclick = function(e) { ad_WndSortUsers('avatar'); };
+
+	var el = document.createElement('th');
+	elTr.appendChild( el);
 	el.textContent = 'ID';
 	el.title = 'User login and unique ID';
 	el.onclick = function(e) { ad_WndSortUsers('id'); };
@@ -500,6 +526,12 @@ function ad_WndDrawUsers()
 	el.textContent = 'Role';
 	el.title = 'Needed for sorting.\nDouble click to edit.';
 	el.onclick = function(e) { ad_WndSortUsers('role'); }
+
+	var el = document.createElement('th');
+	elTr.appendChild( el);
+	el.textContent = 'DOS';
+	el.title = 'Dossier record.';
+	el.onclick = function(e) { ad_WndSortUsers('dossier'); }
 
 	var el = document.createElement('th');
 	elTr.appendChild( el);
@@ -547,6 +579,12 @@ function ad_WndDrawUsers()
 	el.textContent = 'Entered';
 	el.title = 'Last login(F5) time';
 	el.onclick = function(e) { ad_WndSortUsers('rtime'); };
+
+	var el = document.createElement('th');
+	elTr.appendChild( el);
+	el.textContent = 'Lastest News';
+	el.title = 'Last news time';
+	el.onclick = function(e) { ad_WndSortUsers('ntime'); };
 
 	var el = document.createElement('th');
 	elTr.appendChild( el);
@@ -615,6 +653,8 @@ function ad_WndGrpOnClick( i_evt)
 	else
 		ad_wnd_curgroup = null;
 
+	ad_wnd_curstate = null;
+
 	for( var i = 0; i < ad_wnd.elUsrRows.length; i++)
 	{
 		var elU = ad_wnd.elUsrRows[i];
@@ -647,7 +687,15 @@ function ad_WndReceivedUsers()
 
 	if( ad_wnd == null ) return;
 
-	var info = Object.keys(g_users).length + ' users, ' + Object.keys(g_groups).length + ' groups.';
+	var info = Object.keys(g_users).length + ' Users, ' + Object.keys(g_groups).length + ' Groups';
+	var roles = c_GetRolesArtists( g_users);
+	info += ', ' + roles.length + ' Roles: ';
+	for( var r = 0; r < roles.length; r++)
+	{
+		if( r ) info += ', ';
+		info += roles[r].artists.length + ' ' + roles[r].role;
+	}
+	info += '.';
 	ad_wnd.elInfo.textContent = info;
 
 	ad_WndDrawGroups();
@@ -682,6 +730,15 @@ function ad_WndAddUser( i_el, i_user, i_row)
 
 	var el = document.createElement('td');
 	elTr.appendChild( el);
+	el.classList.add('avatar');
+	var avatar = c_GetAvatar(i_user.id);
+	if( avatar )
+		el.style.backgroundImage = 'url(' + avatar + ')';
+	el.m_user_id = i_user.id;
+	el.ondblclick = function(e){ad_ChangeAvatarOnCkick(e.currentTarget.m_user_id);};
+
+	var el = document.createElement('td');
+	elTr.appendChild( el);
 	el.textContent = i_user.id;
 
 	var el = document.createElement('td');
@@ -695,6 +752,14 @@ function ad_WndAddUser( i_el, i_user, i_row)
 	el.textContent = i_user.role;
 	el.m_user_id = i_user.id;
 	el.ondblclick = function(e){ad_ChangeRoleOnCkick(e.currentTarget.m_user_id);};
+
+	var el = document.createElement('td');
+	elTr.appendChild( el);
+	var dossier = '';
+	if( i_user.dossier ) dossier = i_user.dossier.split(' ')[0].split('\u00a0')[0];
+	el.innerHTML = dossier;
+	el.m_user_id = i_user.id;
+	el.ondblclick = function(e){ad_ChangeDossierOnCkick(e.currentTarget.m_user_id);};
 
 	var el = document.createElement('td');
 	elTr.appendChild( el);
@@ -756,6 +821,10 @@ function ad_WndAddUser( i_el, i_user, i_row)
 	var el = document.createElement('td');
 	elTr.appendChild( el);
 	el.textContent = c_DT_StrFromSec( i_user.rtime).substr(4);
+
+	var el = document.createElement('td');
+	elTr.appendChild( el);
+	el.textContent = c_DT_StrFromSec( i_user.ntime).substr(4);
 
 	var el = document.createElement('td');
 	elTr.appendChild( el);
@@ -866,6 +935,15 @@ function ad_WriteGroups()
 {
 	n_Request({"send":{"writegroups":g_groups},"func":ad_ChangesFinished,"ad_func":ad_WndRefresh,"ad_msg":'Grounps written.',"info":'writegroups'});
 }
+function ad_ChangeAvatarOnCkick( i_user_id)
+{
+	new cgru_Dialog({"handle":'ad_ChangeAvatar',"param":i_user_id,"value":g_users[i_user_id].avatar,
+		"name":'users',"title":'Change Avatar',"info":'Enter new avatar link for ' + c_GetUserTitle(i_user_id)});
+}
+function ad_ChangeAvatar( i_avatar, i_user_id)
+{
+	ad_SaveUser({"id":i_user_id,"avatar":i_avatar}, ad_WndRefresh);
+}
 function ad_ChangeTitleOnCkick( i_user_id)
 {
 	new cgru_Dialog({"handle":'ad_ChangeTitle',"param":i_user_id,"value":g_users[i_user_id].title,
@@ -883,6 +961,15 @@ function ad_ChangeRoleOnCkick( i_user_id)
 function ad_ChangeRole( i_role, i_user_id)
 {
 	ad_SaveUser({"id":i_user_id,"role":i_role}, ad_WndRefresh);
+}
+function ad_ChangeDossierOnCkick( i_user_id)
+{
+	new cgru_Dialog({"handle":'ad_ChangeDossier',"param":i_user_id,"value":g_users[i_user_id].dossier,
+		"name":'users',"title":'Edit Dossier',"type":'text',"info":c_GetUserTitle(i_user_id) + ' dossier:'});
+}
+function ad_ChangeDossier( i_dossier, i_user_id)
+{
+	ad_SaveUser({"id":i_user_id,"dossier":i_dossier}, ad_WndRefresh);
 }
 function ad_ChangeTagOnCkick( i_user_id)
 {
@@ -1003,16 +1090,16 @@ function ad_DisableUser( i_user_id)
 
 function ad_DeleteUserOnClick()
 {
-	if( g_users[i_user_id] == null )
-	{
-		c_Error('User "' + i_user_id + '" does not exist.');
-		return;
-	}
 	new cgru_Dialog({"handle":'ad_DeleteUser',
 		"name":'users',"title":'Delete User',"info":'Enter user login name to <b>delete</b>:'});
 }
 function ad_DeleteUser( i_user_id)
 {
+	if( g_users[i_user_id] == null )
+	{
+		c_Error('User "' + i_user_id + '" does not exist.');
+		return;
+	}
 	n_Request({"send":{"disableuser":{"uid":i_user_id}},"func":ad_ChangesFinished,
 		"ad_func":ad_WndRefresh,"ad_msg":'User "'+i_user_id+'" deleted.'});
 }
@@ -1086,7 +1173,8 @@ ad_prof_props.role       = {"disabled":true,"lwidth":'170px'};
 ad_prof_props.avatar     = {};
 ad_prof_props.news_limit = {};
 ad_prof_props.email      = {"width":'70%'};
-ad_prof_props.email_news = {"width":'30%',"bool":false};
+ad_prof_props.email_news = {"width":'30%','type':"bool",'default':false};
+ad_prof_props.signature  = {};
 
 function ad_ProfileOpen()
 {
@@ -1095,6 +1183,8 @@ function ad_ProfileOpen()
 		c_Error('No authenticated user found.');
 		return;
 	}
+
+	u_OpenCloseHeader();
 
 	var wnd = new cgru_Window({"name":'profile',"title":'My Profile'});
 	wnd.elContent.classList.add('profile');

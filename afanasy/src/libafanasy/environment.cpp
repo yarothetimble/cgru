@@ -55,9 +55,6 @@ int     Environment::render_update_sec =               AFRENDER::UPDATEPERIOD;
 int     Environment::render_updatetaskperiod =         AFRENDER::UPDATETASKPERIOD;
 int     Environment::render_zombietime =               AFRENDER::ZOMBIETIME;
 int     Environment::render_connectretries =           AFRENDER::CONNECTRETRIES;
-int     Environment::render_waitforconnected =         AFRENDER::WAITFORCONNECTED;
-int     Environment::render_waitforreadyread =         AFRENDER::WAITFORREADYREAD;
-int     Environment::render_waitforbyteswritten =      AFRENDER::WAITFORBYTESWRITTEN;
 std::vector<std::string> Environment::render_windowsmustdie;
 std::string Environment::cmd_shell =                   AFRENDER::CMD_SHELL;
  
@@ -69,11 +66,6 @@ std::string Environment::render_cmd_wolwake =          AFRENDER::CMD_WOLWAKE;
 std::string Environment::render_networkif =            AFRENDER::NETWORK_IF;
 std::string Environment::render_hddspace_path =        AFRENDER::HDDSPACE_PATH;
 std::string Environment::render_iostat_device =        AFRENDER::IOSTAT_DEVICE;
-
-std::string Environment::thumbnail_cmd =               THUMBNAIL::CMD;
-std::string Environment::thumbnail_naming =            THUMBNAIL::NAMING;
-std::string Environment::thumbnail_http =              THUMBNAIL::HTTP;
-std::string Environment::thumbnail_file =              THUMBNAIL::FILE;
 
 std::string Environment::pswd_visor =                  AFUSER::PSWD_VISOR;
 std::string Environment::pswd_god =                    AFUSER::PSWD_GOD;
@@ -95,13 +87,6 @@ int     Environment::monitor_waitforconnected =        AFMONITOR::WAITFORCONNECT
 int     Environment::monitor_waitforreadyread =        AFMONITOR::WAITFORREADYREAD;
 int     Environment::monitor_waitforbyteswritten =     AFMONITOR::WAITFORBYTESWRITTEN;
 int     Environment::monitor_zombietime =              AFMONITOR::ZOMBIETIME;
-
-int     Environment::talk_updateperiod =               AFTALK::UPDATEPERIOD;
-int     Environment::talk_connectretries =             AFTALK::CONNECTRETRIES;
-int     Environment::talk_waitforconnected =           AFTALK::WAITFORCONNECTED;
-int     Environment::talk_waitforreadyread =           AFTALK::WAITFORREADYREAD;
-int     Environment::talk_waitforbyteswritten =        AFTALK::WAITFORBYTESWRITTEN;
-int     Environment::talk_zombietime =                 AFTALK::ZOMBIETIME;
 
 int Environment::afnode_log_lines_max =              AFGENERAL::LOG_LINES_MAX;
 
@@ -228,14 +213,7 @@ void Environment::getVars( const JSON & i_obj)
 	getVar( i_obj, render_updatetaskperiod,           "af_render_updatetaskperiod"           );
 	getVar( i_obj, render_zombietime,                 "af_render_zombietime"                 );
 	getVar( i_obj, render_connectretries,             "af_render_connectretries"             );
-	getVar( i_obj, render_waitforconnected,           "af_render_waitforconnected"           );
-	getVar( i_obj, render_waitforreadyread,           "af_render_waitforreadyread"           );
-	getVar( i_obj, render_waitforbyteswritten,        "af_render_waitforbyteswritten"        );
 	getVar( i_obj, render_windowsmustdie,             "af_render_windowsmustdie"             );
-
-	getVar( i_obj, thumbnail_cmd,                     "af_thumbnail_cmd"                     );
-	getVar( i_obj, thumbnail_naming,                  "af_thumbnail_naming"                  );
-	getVar( i_obj, thumbnail_http,                    "af_thumbnail_http"                    );
 
 	getVar( i_obj, rendercmds,                        "af_rendercmds"                        );
 	getVar( i_obj, rendercmds_admin,                  "af_rendercmds_admin"                  );
@@ -255,13 +233,6 @@ void Environment::getVars( const JSON & i_obj)
 	getVar( i_obj, sysjob_postcmd_service,            "af_sysjob_postcmd_service"            );
 	getVar( i_obj, sysjob_wol_service,                "af_sysjob_wol_service"                );
 	getVar( i_obj, sysjob_events_service,             "af_sysjob_events_service"             );
-
-	getVar( i_obj, talk_updateperiod,                 "af_talk_updateperiod"                 );
-	getVar( i_obj, talk_zombietime,                   "af_talk_zombietime"                   );
-	getVar( i_obj, talk_connectretries,               "af_talk_connectretries"               );
-	getVar( i_obj, talk_waitforconnected,             "af_talk_waitforconnected"             );
-	getVar( i_obj, talk_waitforreadyread,             "af_talk_waitforreadyread"             );
-	getVar( i_obj, talk_waitforbyteswritten,          "af_talk_waitforbyteswritten"          );
 
 	getVar( i_obj, monitor_render_idle_bar_max,       "af_monitor_render_idle_bar_max"       );
 	getVar( i_obj, monitor_updateperiod,              "af_monitor_updateperiod"              );
@@ -642,14 +613,16 @@ bool Environment::checkKey( const char key) { return passwd->checkKey( key, viso
 // Initialize environment after all variables are loaded (set to default values)
 bool Environment::initAfterLoad()
 {
+	// Store folders:
 	jobs_dir    = temp_dir + AFGENERAL::PATH_SEPARATOR +    AFJOB::DIRECTORY;
 	renders_dir = temp_dir + AFGENERAL::PATH_SEPARATOR + AFRENDER::DIRECTORY;
 	users_dir   = temp_dir + AFGENERAL::PATH_SEPARATOR +   AFUSER::DIRECTORY;
 
+	// HTTP serve folder:
 	if( http_serve_dir.empty()) 
 		http_serve_dir = cgrulocation;
 
-	//############ Server Accept IP Addresses Mask:
+	// Server Accept IP Addresses Mask:
 	if( false == Address::readIpMask( ip_trust, m_verbose_init))
 	{
 		return false;
@@ -658,7 +631,8 @@ bool Environment::initAfterLoad()
 	// Digest authentication file read:
 	{
 	digest_file = getCGRULocation() + AFGENERAL::PATH_SEPARATOR + digest_file;
-	char * data = af::fileRead( digest_file);
+	std::string info;
+	char * data = af::fileRead( digest_file, NULL, 0, &info);
 	if( data )
 	{
 		std::vector<std::string> lines = af::strSplit( data,"\n");
@@ -674,16 +648,27 @@ bool Environment::initAfterLoad()
 			}
 			digest_map[words[0]] = words[2];
 		}
+		printf("Digest file loaded, authentication is enabled.\n");
 	}
-	else
+	else if( isVerboseMode())
+	{
+		if( info.size())
+			printf("%s\n", info.c_str());
 		printf("Digest not loaded, authentication is disabled.\n");
+	}
+	}
+
+	// Check whether server address is configured:
+	if(( servername == std::string(AFADDR::SERVER_NAME)) && ( isServer() != true ))
+	{
+		printf("WARNING: SERVER ADDRESS ID NOT CONFIGURED, USING %s\n", AFADDR::SERVER_NAME);
 	}
 
 	// Solve server name
 	if( m_solveservername )
 		 serveraddress = af::solveNetName( servername, serverport, AF_UNSPEC, m_verbose_init ? VerboseOn : VerboseOff);
 
-	//############ VISOR and GOD passwords:
+	// VISOR and GOD passwords:
 	if( passwd != NULL) delete passwd;
 	passwd = new Passwd( pswd_visor, pswd_god);
 

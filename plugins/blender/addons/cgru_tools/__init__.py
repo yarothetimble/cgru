@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
+
 bl_info = {
 	"name": "CGRU Tools",
-	"author": "CGRU Team",
-	"version": (1,),
+	"author": "Timur Hairulin, Paul Geraskin, Sylvain Maziere",
+	"version": (1,0,0),
 	"blender": (2, 7, 1),
-	"location": "3D Viewport",
+	"location": "Properties > Render > Afanasy",
 	"description": "CGRU Tools",
 	"warning": "",
 	"wiki_url": "",
@@ -15,77 +16,38 @@ bl_info = {
 
 if "bpy" in locals():
 	import imp
-	imp.reload(afanasy_tools)
+	imp.reload(addon_prefs)
+	imp.reload(properties)
+	imp.reload(ui)
+	imp.reload(operators)
 else:
-	from . import afanasy_tools
+	from . import addon_prefs
+	from . import properties
+	from . import ui
+	from . import operators
 
 import bpy
-from bpy.props import *
-
-
-class ORESettings(bpy.types.PropertyGroup):
-	"""Missing DocString
-	"""
-	# General:
-	jobname = StringProperty(name='Job Name',
-							 description='Job Name. Scene name if empty.',
-							 maxlen=512, default='')
-
-	fpertask = IntProperty(name='Per Task', description='Frames Per One Task',
-						   min=1, default=1)
-	pause = BoolProperty(name='Start Job Paused',
-						 description='Send job in offline state.', default=0)
-
-	packLinkedObjects = BoolProperty(name='Pack Linked Objects',
-						 description='Make Loacal All linked Groups and Objects', default=0)
-	relativePaths = BoolProperty(name='Relative Paths',
-						 description='Set Relative Paths for all Textures and Objects', default=0)
-	packTextures = BoolProperty(name='Pack Textures',
-						 description='Pack all Textures into the Blend File.', default=0)
-
-	# Render Settings:
-	filepath = StringProperty(name='File Path', description='Set File Path.',
-							  maxlen=512, default='')
-
-	# Paramerets:
-	priority = IntProperty(name='Priority',
-						   description='Job order in user jobs list.', min=-1,
-						   max=250, default=-1)
-	maxruntasks = IntProperty(name='Max Run Tasks',
-							  description='Maximum number of running tasks.',
-							  min=-1, max=9999, default=-1)
-	dependmask = StringProperty(name='Depend Mask',
-								description='Jobs to wait pattern.',
-								maxlen=512, default='')
-	dependmaskglobal = StringProperty(name='Global Depend',
-									  description='All users jobs wait pattern.',
-									  maxlen=512, default='')
-	hostsmask = StringProperty(name='Hosts Mask',
-							   description='Hosts to run pattern.', maxlen=512,
-							   default='')
-	hostsmaskexclude = StringProperty(name='Exclude Hosts',
-									  description='Hosts to ignore pattern.',
-									  maxlen=512, default='')
+import os
 
 
 def register():
-	bpy.CGRUTools = dict()
-
 	bpy.utils.register_module(__name__)
-	bpy.types.Scene.ore_render = PointerProperty(
-		type=ORESettings,
-		name='ORE Render',
-		description='ORE Render Settings'
+	bpy.types.Scene.cgru = bpy.props.PointerProperty(
+		type=properties.CGRUProperties,
+		name='CGRU Settings',
+		description='CGRU Settings'
 	)
+
+	prefs = bpy.context.user_preferences.addons[__name__].preferences
+	if "CGRU_LOCATION" in os.environ:
+		prefs.cgru_location = os.environ["CGRU_LOCATION"]
 
 
 def unregister():
-	import bpy
-
-	del bpy.types.Scene.ore_render
-	del bpy.CGRUTools
+	del bpy.types.Scene.cgru
 	bpy.utils.unregister_module(__name__)
 
 
 if __name__ == "__main__":
 	register()
+

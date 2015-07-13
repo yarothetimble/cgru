@@ -24,7 +24,6 @@ public:
 	inline uint32_t getTasksMaxRunTime( int block = 0 ) const
 		{if(block<m_blocks_num )return m_blockinfo[ block].getTasksMaxRunTime();     else return 0; }
 
-	int priority;
 	int maxrunningtasks;
 	int maxruntasksperhost;
 	uint32_t state;
@@ -34,7 +33,7 @@ public:
 	int64_t time_done;
 	uint32_t time_run;
 	int lifetime;
-	QString annotation;
+	bool ppapproval;
 	QString hostname;
 	QString username;
 	QString hostsmask;
@@ -46,6 +45,7 @@ public:
 	QString cmd_pre;
 	QString cmd_post;
 	QString description;
+	QString thumb_path;
 
 	inline int getBlocksNum() const { return m_blocks_num;}
 	inline int getBlockPercent( int block ) const

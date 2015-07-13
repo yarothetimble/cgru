@@ -5,6 +5,7 @@ import sys
 import os
 import shutil
 import signal
+import re
 import time
 
 import af
@@ -20,14 +21,22 @@ Parser = OptionParser(
 		  "Type \"%prog -h\" for help", version="%prog 1.0"
 )
 
-Parser.add_option('-i', '--inputs',     dest='inputs',     type  ='string', default='RESULT/JPG',help='Inputs')
-Parser.add_option('-n', '--cutname',    dest='cutname',    type  ='string', default='',          help='Cut name')
-Parser.add_option('-f', '--fps',        dest='fps',        type  ='string', default='24',        help='FPS')
-Parser.add_option('-r', '--resolution', dest='resolution', type  ='string', default='1280x720',  help='Resolution: 1280x720')
-Parser.add_option('-c', '--codec',      dest='codec',      type  ='string', default='h264_good', help='Codec')
-Parser.add_option('-o', '--outdir',     dest='outdir',     type  ='string', default='cut',       help='Output folder')
-Parser.add_option('-u', '--afuser',     dest='afuser',     type  ='string', default='',          help='Afanasy user name')
-Parser.add_option('-t', '--testonly',   dest='testonly',   action='store_true', default=False,   help='Test input only')
+Parser.add_option('-i', '--inputs',     dest='inputs',      type  ='string', default='RESULT/JPG',help='Inputs')
+Parser.add_option('-n', '--cutname',    dest='cutname',     type  ='string', default='',          help='Cut name')
+Parser.add_option('-f', '--fps',        dest='fps',         type  ='string', default='24',        help='FPS')
+Parser.add_option('-r', '--resolution', dest='resolution',  type  ='string', default='1280x720',  help='Resolution: 1280x720')
+Parser.add_option('-c', '--codec',      dest='codec',       type  ='string', default='h264_good', help='Codec')
+Parser.add_option('--colorspace',       dest='colorspace',  type  ='string', default='auto',      help='Input images colorspace')
+Parser.add_option('-o', '--outdir',     dest='outdir',      type  ='string', default='cut',       help='Output folder')
+Parser.add_option('-u', '--afuser',     dest='afuser',      type  ='string', default='',          help='Afanasy user name')
+Parser.add_option('--afservice',        dest='afservice',   type  ='string', default='movgen',    help='Afanasy service type')
+Parser.add_option('--afcapacity',       dest='afcapacity',  type  ='int',    default=100,         help='Afanasy tasks capacity')
+Parser.add_option('--afmaxtasks',       dest='afmaxtasks',  type  ='int',    default=-1,          help='Afanasy max running tasks')
+Parser.add_option('--afperhost',        dest='afperhost',   type  ='int',    default=-1,          help='Afanasy max tasks per host')
+Parser.add_option('--afmaxruntime',     dest='afmaxruntime',type  ='int',    default=120,         help='Afanasy max tasks run time')
+Parser.add_option('-p', '--afpertask',  dest='afpertask',   type  ='int',    default=100,         help='Afanasy frames per task')
+Parser.add_option('-t', '--testonly',   dest='testonly',    action='store_true', default=False,   help='Test input only')
+Parser.add_option('-V', '--verbose',    dest='verbose',     action='store_true', default=False,   help='Verbose')
 
 
 def errExit(i_msg):
@@ -88,6 +97,7 @@ cmd_prefix = 'python "%s"' % os.path.normpath(cmd_prefix)
 cmd_prefix += ' -t "dailies"'
 cmd_prefix += ' -r %s' % Options.resolution
 cmd_prefix += ' -d "%s"' % time.strftime('%y-%m-%d')
+cmd_prefix += ' --colorspace "%s"' % Options.colorspace
 
 file_counter = 0
 
@@ -131,26 +141,56 @@ for shot in Shots:
 				break
 		if valid:
 			files.append(os.path.join(folder, item))
+
 	if len(files) == 0:
 		errExit('No files found in folder: %s' % folder)
+
 	files.sort()
 
-	print('{"sequence":"%s"},' % folder)
+	nums = re.findall(r'\d+',files[0])
+	if len(nums) == 0:
+		errExit('Can`t find numbers in %s', files[0])
+	nums = nums[-1]
+	sequence = files[0][:files[0].rfind(nums)]
+	padding = len(nums)
+	sequence += '%0' + str(padding) + 'd'
+	sequence += files[0][files[0].rfind(nums)+padding:]
+	frame_first = int(nums)
+	nums = re.findall(r'\d+',files[-1])
+	if len(nums) == 0:
+		errExit('Can`t find numbers in %s', files[-1])
+	frame_last = int(nums[-1])
 
-	for image in files:
+	print('{"sequence":"%s","first":%d,"last":%d,"count":%d},' % (sequence, frame_first, frame_last, len(files)))
+
+	f = frame_first
+	while f <= frame_last:
+		num_frames = len(files)
+
+		if num_frames > Options.afpertask:		
+			num_frames = Options.afpertask
+
+		if f + num_frames > frame_last:
+			num_frames = frame_last - f + 1
+
 		cmd = cmd_prefix
 		cmd += ' --project "%s"' % CutName
 		cmd += ' --shot "%s"' % name
 		cmd += ' --ver "%s"' % version
 		cmd += ' --moviename "%s"' % os.path.basename(movie_name)
-		cmd += ' -f "%s"' % os.path.basename(image)
-		cmd += ' "%s"' % image
-		output = os.path.join(OutDir, TmpFiles % file_counter)
+		cmd += ' --frame_input %d' % f
+		cmd += ' --frame_output %d' % file_counter
+		cmd += ' --frames_num %d' % num_frames
+		cmd += ' "%s"' % sequence
+		output = os.path.join(OutDir, TmpFiles)
 		cmd += ' "%s"' % output
 
-		file_counter += 1
 		commands.append(cmd)
-		task_names.append(os.path.basename(image))
+		task_names.append('%s: %d-%d' % (os.path.basename(sequence), f, f+num_frames-1))
+
+		f += num_frames
+		file_counter += num_frames
+
 
 print('{"progress":"%d sequences found"},' % len(Shots))
 print('{"progress":"%d files found"},' % file_counter)
@@ -163,19 +203,22 @@ cmd_encode += ' "%s"' % os.path.join(OutDir, TmpFiles)
 cmd_encode += ' "%s"' % movie_name
 
 job = af.Job('CUT ' + CutName)
-block = af.Block('convert')
+job.setMaxRunningTasks( Options.afmaxtasks)
+job.setMaxRunTasksPerHost( Options.afperhost)
+
+block = af.Block('convert', Options.afservice)
 counter = 0
 for cmd in commands:
 	task = af.Task(task_names[counter])
 	task.setCommand(cmd)
 	block.tasks.append(task)
 	counter += 1
-block.setCapacity(100)
-block.setMaxRunTasksPerHost(2)
-block.setTasksMaxRunTime(20)
+	if Options.verbose: print(cmd)
+block.setCapacity( Options.afcapacity)
+block.setTasksMaxRunTime( Options.afmaxruntime)
 job.blocks.append(block)
 
-block = af.Block('encode')
+block = af.Block('encode', Options.afservice)
 block.setDependMask('convert')
 task = af.Task('encode')
 task.setCommand(cmd_encode)
@@ -185,7 +228,6 @@ job.blocks.append(block)
 if Options.afuser != '':
 	job.setUserName(Options.afuser)
 
-job.setNeedOS('win')
 if not Options.testonly:
 	if not job.send():
 		errExit('Can`t send job to server.')

@@ -46,7 +46,7 @@ Parser.add_option('-c', '--codec',      dest='codec',       type  ='string',    
 Parser.add_option('-f', '--fps',        dest='fps',         type  ='string',     default='25',        help='Frames per second')
 Parser.add_option('-t', '--template',   dest='template',    type  ='string',     default='',          help='Specify frame template to use')
 Parser.add_option('-s', '--slate',      dest='slate',       type  ='string',     default='',          help='Specify slate frame template')
-Parser.add_option('-n', '--container',  dest='container',   type  ='string',     default='',          help='Container')
+Parser.add_option('-n', '--container',  dest='container',   type  ='string',     default=None,        help='Container')
 Parser.add_option('--fs',               dest='framestart',  type  ='int',        default=-1,          help='First frame to use, -1 use the first found')
 Parser.add_option('--fe',               dest='frameend',    type  ='int',        default=-1,          help='Last frame to use, -1 use the last found')
 Parser.add_option('--fffirst',          dest='fffirst',     action='store_true', default=False,       help='Draw first frame as first and not actual frame number.')
@@ -153,10 +153,14 @@ if Verbose:
 if Debug:
 	print('DEBUG MODE:')
 
-if Container == '':
+if Container is None:
+	Container = 'mp4'
+if os.path.basename(Codec).find('theora') == 0:
+	Container = 'ogg'
+elif os.path.basename(Codec).find('prores') == 0:
 	Container = 'mov'
-	if os.path.basename(Codec).find('theora') == 0:
-		Container = 'ogg'
+elif os.path.basename(Codec).find('dnxhd') == 0:
+	Container = 'mov'
 
 # Definitions:
 tmpname   = 'img'
@@ -369,12 +373,16 @@ def getImages(inpattern):
 			print('Frame Range: %d - %d' %
 				  (Options.framestart, Options.frameend))
 		sys.exit(1)
+
 	allFiles.sort()
+	afile = allFiles[0]
+
+	# Parse start number:
+	start_number = int(re.findall(r'\d+', afile)[-1])
 	if Verbose:
-		print('Files fonded: %d' % len(allFiles))
+		print('Files fonded: %d, start_number=%d' % (len(allFiles), start_number))
 
 	# Input files indentify:
-	afile = allFiles[0]
 	identify = 'convert -identify "%s"'
 	if sys.platform.find('win') == 0:
 		identify += ' nul'
@@ -420,13 +428,13 @@ def getImages(inpattern):
 	elif Verbose:
 		print('AspectIn = %f' % AspectIn)
 
-	return allFiles, inputdir, prefix, padding, suffix
+	return allFiles, inputdir, prefix, padding, suffix, start_number
 
 
 # Call get images function:
-images1, inputdir, prefix, padding, suffix = getImages(Inpattern1)
+images1, inputdir, prefix, padding, suffix, start_number = getImages(Inpattern1)
 if Inpattern2 != '':
-	images2, inputdir, prefix, padding, suffix = getImages(Inpattern2)
+	images2, inputdir, prefix, padding, suffix, start_number = getImages(Inpattern2)
 	if len(images1) != len(images2):
 		print('Error: Sequences length is not the same')
 		sys.exit(1)
@@ -571,6 +579,7 @@ for i in range(2):
 
 # Generate convert commands lists:
 cmd_convert = []
+img_convert = []
 name_convert = []
 
 # Generate header:
@@ -583,9 +592,10 @@ if need_convert and Options.slate != '':
 	cmd += ' "%s"' % images1[int(len(images1) / 2)]
 	if Inpattern2 != '':
 		cmd += ' "%s"' % images2[int(len(images1) / 2)]
-	cmd += ' "%s"' % (
-		os.path.join(TmpDir, tmpname) + '.%07d.' % imgCount + TmpFormat)
+	slate = os.path.join(TmpDir, tmpname) + '.%07d.' % imgCount + TmpFormat
+	cmd += ' "%s"' % slate
 	cmd_convert.append(cmd)
+	img_convert.append( slate)
 	name_convert.append('Generate header')
 	imgCount += 1
 
@@ -621,10 +631,11 @@ if need_convert:
 		cmd += ' "%s"' % afile
 		if Inpattern2 != '':
 			cmd += ' "%s"' % images2[i]
-		cmd += ' "%s"' % (
-			os.path.join(TmpDir, tmpname) + '.%07d.' % imgCount + TmpFormat)
+		outfile = os.path.join(TmpDir, tmpname) + '.%07d.' % imgCount + TmpFormat
+		cmd += ' "%s"' % outfile
 
 		cmd_convert.append(cmd)
+		img_convert.append(outfile)
 		name_convert.append(afile)
 		imgCount += 1
 		i += 1
@@ -655,7 +666,12 @@ if len(Audio) and EncType == 'ffmpeg':
 	inputmask += ' -ab %dk' % Options.akbits
 	inputmask += ' -acodec "%s' % Options.acodec
 
-cmd_encode = cmd_encode.replace('@AVCMD@', Options.avcmd)
+# Process avcmd:
+AVCMD = Options.avcmd
+if not need_convert:
+	AVCMD += ' -start_number %d' % start_number
+
+cmd_encode = cmd_encode.replace('@AVCMD@', AVCMD)
 cmd_encode = cmd_encode.replace('@MOVIEMAKER@', MOVIEMAKER)
 cmd_encode = cmd_encode.replace('@CODECSDIR@', CODECSDIR)
 cmd_encode = cmd_encode.replace('@INPUT@', inputmask)
@@ -665,7 +681,7 @@ cmd_encode = cmd_encode.replace('@OUTPUT@', Output)
 cmd_encode = cmd_encode.replace('@AUXARGS@', auxargs)
 
 if cmd_preview:
-	cmd_preview = cmd_preview.replace('@AVCMD@', Options.avcmd)
+	cmd_preview = cmd_preview.replace('@AVCMD@', AVCMD)
 	cmd_preview = cmd_preview.replace('@MOVIEMAKER@', MOVIEMAKER)
 	cmd_preview = cmd_preview.replace('@CODECSDIR@', CODECSDIR)
 	cmd_preview = cmd_preview.replace('@INPUT@', preview_input)
@@ -785,6 +801,11 @@ else:
 		sys.stdout.flush()
 		for cmd in cmd_convert:
 			print(name_convert[n])
+
+			if n <= 1 or n == len(cmd_convert)-1 or n%10 == 0:
+				# Generate thumbnail while task is running:
+				print('@IMAGE!@' + img_convert[n])
+
 			if Verbose: print(cmd)
 			# output = subprocess.Popen( cmd, stdout=subprocess.PIPE).communicate()[0]
 			cmd_array = []
