@@ -18,10 +18,31 @@ class afterfx(parser.parser):
 		parser.parser.__init__(self)
 		self.firstframe = True
 		self.data_all = ''
+		
+		#helper for finding num of frames
+		self.numFramesFound = False
 
 	def do(self, data, mode):
 		self.data_all += data
-
+		
+		if not self.numFramesFound:
+			try:
+				idx = data.index( "End:" )
+			except ValueError:
+				idx = -1
+			if not idx==-1:
+				tmpData = data[ idx+5: ]
+				
+				tc = tmpData.split( '\\r' )[0].split(':')
+				tc.reverse()
+				
+				multiply = [ 1, 24, 24*60, 24*60*60 ]
+				idx = 0
+				for val in tc:
+					self.numframes += int(val) * multiply[idx]
+					idx += 1
+				self.numFramesFound = True
+				
 		for error in Errors:
 			if data.find(error) != -1:
 				self.error = True
@@ -35,9 +56,15 @@ class afterfx(parser.parser):
 		match = re_frame.search(data)
 		if match is None:
 			return
-
-		if not self.firstframe:
-			self.frame += 1
+		
+		frame = self.frame
+		for match in re_frame.finditer( data ):
+			try:
+				frame = int( match.groups()[0][1:-1] ) - 1
+			except ValueError:
+				pass
+		
+		self.frame = frame
 
 		self.firstframe = False
 		self.calculate()
